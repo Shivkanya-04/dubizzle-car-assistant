@@ -1,84 +1,152 @@
-# dubizzle Cars AI Assistant
+# Dubizzle Cars AI Assistant
 
-An AI assistant that lets users explore a car inventory, get contextual multi-turn
-answers, book viewing slots, and get remembered across sessions.
+## Overview
 
-## Quick Setup
+This project is a conversational AI assistant for the dubizzle Cars marketplace. It allows users to search the provided car inventory using natural language, ask follow-up questions about listings, book viewing slots, and remember user preferences across multiple sessions.
 
-### Prerequisites
-- Python 3.10+, `uv` installed (`pip install uv`)
-- A free Gemini API key from Google AI Studio
-- Replace `cars.csv` with the provided dataset if different from the sample included here
-  (headers are auto-lowercased and an `id` column is auto-generated if missing, so most
-  reasonable CSV layouts will work out of the box)
+The backend is built with FastAPI and uses Gemini 2.5 Flash with function calling for intent recognition. A lightweight Streamlit application is used as the client interface.
 
-```bash
-export GEMINI_API_KEY="your_api_key_here"
-# or put it in a .env file: GEMINI_API_KEY=your_api_key_here
+---
+
+## Features
+
+- Natural language car inventory search
+- Gemini 2.5 Flash function calling
+- Multi-turn conversations with short-term memory
+- Persistent user memory using SQLite
+- Vehicle viewing/test-drive booking
+- Lead qualification with CSV export
+- FastAPI REST API
+- Streamlit chat interface
+- Automotive-only guardrails with competitor filtering
+
+---
+
+## Project Structure
+
+```
+.
+├── app.py              # Streamlit frontend
+├── main.py             # FastAPI backend
+├── services.py         # Business logic
+├── cars.csv            # Vehicle inventory
+├── app.db              # SQLite database (created automatically)
+├── leads.csv           # Qualified leads (created automatically)
+├── pyproject.toml
+├── uv.lock
+└── README.md
 ```
 
-### Install deps
+---
+
+## Architecture
+
+```
+                Streamlit UI
+                     │
+                     ▼
+             FastAPI Backend
+                     │
+     ┌───────────────┼────────────────┐
+     │               │                │
+     ▼               ▼                ▼
+ Gemini API      SQLite DB        cars.csv
+(Function Calling)  (Memory)      (Inventory)
+                     │
+                     ▼
+              leads.csv (Lead Storage)
+```
+
+---
+
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd dubizzle-car-assistant
+```
+
+### 2. Install dependencies
+
 ```bash
 uv sync
 ```
 
-### Run the backend
-```bash
-uv run uvicorn main:app --reload --port 8000
+### 3. Create a `.env` file
+
+```
+GEMINI_API_KEY=your_api_key_here
 ```
 
-### Run the Streamlit client (separate terminal)
+You can get a free API key from Google AI Studio.
+
+### 4. Start the backend
+
+```bash
+uv run uvicorn main:app --reload
+```
+
+### 5. Start the Streamlit application
+
+Open another terminal and run:
+
 ```bash
 uv run streamlit run app.py
 ```
 
-Open the Streamlit URL, enter a User ID in the sidebar (e.g. `usr_101`), and chat.
-To test long-term memory recall, chat as `usr_101`, mention a preference/budget,
-close the tab, reopen, and re-enter the same User ID — the sidebar and the model's
-replies should reflect what it remembers.
+---
 
-## Why these choices
+## Implementation
 
-**Client:** Streamlit was chosen over a notebook because it gives a real chat UI
-(message bubbles, spinner, sidebar identity switch) that makes it trivial to demo
-both short-term context and cross-session recall live, which matters most for the
-"screenshot the conversation" requirement.
+The assistant uses Gemini 2.5 Flash with function calling to identify the user's intent. Inventory-related requests are converted into structured search parameters and executed against the local car dataset using pandas. This keeps every response grounded in the provided inventory and prevents the model from inventing listings.
 
-**Retrieval:** Given ~100 rows with a mix of structured columns (make/model/year/price)
-and one free-text description field, plain pandas filtering + one `q` full-text
-parameter was chosen over a vector DB. At this scale a vector index adds latency and
-setup cost without improving accuracy — the filters can be combined precisely by the
-model via function calling, and grounding is guaranteed because the model only ever
-sees rows the tool actually returned (no hallucinated inventory).
+Short-term memory is maintained by replaying recent conversation history, allowing users to ask follow-up questions naturally. Long-term memory is implemented using SQLite, where user names, preferences, and recent conversations are stored. Qualified leads are also recorded in a CSV file whenever users share their budget or vehicle requirements.
 
-**Memory:** Short-term memory is handled by replaying the last few turns of the
-current session's conversation back into the Gemini `contents` array on every call
-(not just storing them unused). Long-term memory uses a single SQLite table keyed by
-`uid` storing `name`, `prefs` (JSON), and a rolling window of recent `history`
-(JSON) — simple, inspectable, and durable across process restarts, which is enough
-for the "returning user" requirement without needing a dedicated memory service.
+---
 
-**Guardrails:** Enforced at two levels — the system prompt instructs the model to
-stay on-topic, decline non-automotive requests, and never name competitors, and a
-lightweight backend post-filter (`sanitize_reply`) blocks any competitor name that
-slips through before the response is returned. Booking slots are validated in code
-(`validate_slot`), not just prompted, so the model can't hallucinate an out-of-hours
-slot into the bookings table.
+## Design Decisions
 
-## Out of scope / possible extensions
-Given the time constraint, a few things were intentionally left out: multi-tool-call
-still runs in a bounded loop (max 4 iterations) rather than a full agent loop with
-retries/backoff; there's no auth on the API (uid is trusted as given); the vector/RAG
-option was skipped in favor of pandas filtering as described above; and lead scoring/
-qualification is just recorded, not scored or routed anywhere. A production version
-would add: proper auth + rate limiting, a real vector index if the catalog grows past
-a few thousand listings, streaming responses in the UI, and a background job to
-summarize/prune long history instead of a fixed 10-turn window.
+### Streamlit
 
-## Project structure
-```
-main.py       - FastAPI app: /api/chat, /api/user/{uid}, /api/inventory
-services.py   - CarBotEngine: inventory search, SQLite persistence, booking, leads
-app.py        - Streamlit chat client
-cars.csv      - Sample inventory (swap in the provided dataset if different)
-```
+I chose Streamlit because it provides a clean conversational interface with very little setup, making it ideal for demonstrating multi-turn conversations and returning-user memory.
+
+### Retrieval Method
+
+Since the provided dataset contains only around 100 vehicle listings, I chose pandas filtering instead of a vector database. This keeps the implementation simple while ensuring every response comes directly from the provided inventory.
+
+### Memory
+
+SQLite was used for persistent user memory because it requires no additional services and is sufficient for storing user profiles, conversation history, and preferences across sessions.
+
+---
+
+## Future Improvements
+
+Some features that could be added in a production system include:
+
+- Semantic search using embeddings for larger inventories
+- Authentication instead of simple user identification
+- Preventing double-booking of viewing slots
+- Improved ranking of search results
+- Streaming responses in the chat interface
+- Calendar integration for booking confirmations
+
+---
+
+## Demonstration
+
+### Multi-turn Conversation
+
+![Multi-turn Conversation](images/multiturn.png)
+
+The assistant successfully searches the inventory, remembers the selected vehicle, answers follow-up questions, and books a viewing slot.
+
+---
+
+### Returning User Memory
+
+![Returning User](images/memory.png)
+
+The assistant recognizes a returning user, recalls previous preferences, and continues the conversation using information stored from an earlier session.
