@@ -134,19 +134,3 @@ Some features that could be added in a production system include:
 - Calendar integration for booking confirmations
 
 ---
-
-## Demonstration
-
-### Multi-turn Conversation
-
-![Multi-turn Conversation](images/multiturn.png)
-
-The assistant successfully searches the inventory, remembers the selected vehicle, answers follow-up questions, and books a viewing slot.
-
----
-
-### Returning User Memory
-
-![Returning User](images/memory.png)
-
-The assistant recognizes a returning user, recalls previous preferences, and continues the conversation using information stored from an earlier session.
