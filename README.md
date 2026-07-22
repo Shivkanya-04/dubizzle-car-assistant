@@ -30,8 +30,8 @@ The backend is built with FastAPI and uses Gemini 2.5 Flash with function callin
 ├── main.py             # FastAPI backend
 ├── services.py         # Business logic
 ├── cars.csv            # Vehicle inventory
-├── app.db              # SQLite database (created automatically)
-├── leads.csv           # Qualified leads (created automatically)
+├── app.db              # Created automatically on first run      
+├── leads.csv           # Created automatically when a lead is recorded
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
@@ -64,7 +64,7 @@ The backend is built with FastAPI and uses Gemini 2.5 Flash with function callin
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Shivkanya-04/dubizzle-car-assistant.git
 cd dubizzle-car-assistant
 ```
 
